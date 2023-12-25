@@ -1,0 +1,14 @@
+[package]
+authors = ["Kenan Alizadeh"]
+name = "xctest_rs"
+description = "A Tool for delivering squad-specific code coverage report."
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+polars = { version = "0.35.4", features = ["lazy", "json", "csv"] }
+clap = { version="4.4.11", features = ["derive"] }
+home = "0.5.9"
+thiserror = "1.0.51"
