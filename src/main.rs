@@ -1,6 +1,9 @@
+use std::error::Error;
 use std::path::PathBuf;
 use std::fmt::Display;
+use std::fs::File;
 use std::io::{Cursor, Read};
+use std::ops::{Div, Mul};
 use std::process::{Command, Stdio};
 use clap::Parser;
 use polars::prelude::*;
@@ -11,7 +14,7 @@ mod errors;
 mod model;
 
 use crate::args::{Cli, Commands};
-use crate::errors::{CSVParseError, FilePathError, XCTestError};
+use crate::errors::{FilePathError, XCTestError};
 use crate::errors::CommandExecutionError;
 use crate::fs::{home_path, setup_home_dir, xcresult_path};
 use crate::model::{SquadData, TargetFile, XCodeBuildReport};
@@ -75,8 +78,14 @@ fn run_tests(project_path: &PathBuf, clean: bool) -> Result<(), XCTestError> {
     }
 
     let xctest_home = home_path()?;
-    let workspace_file_path = PathBuf::from_iter([&project_path, &PathBuf::from("IBAMobileBank.xcworkspace")]);
-    let derived_data_path = PathBuf::from_iter([&xctest_home, &PathBuf::from("derived_data")]);
+    let workspace_file_path = PathBuf::from_iter([
+        &project_path,
+        &PathBuf::from("IBAMobileBank.xcworkspace")
+    ]);
+    let derived_data_path = PathBuf::from_iter([
+        &xctest_home,
+        &PathBuf::from("derived_data")
+    ]);
     let xcbuild_child = Command::new("xcodebuild")
         .args(&[
             "-workspace",
@@ -107,9 +116,20 @@ fn run_tests(project_path: &PathBuf, clean: bool) -> Result<(), XCTestError> {
         .stdout
         .ok_or(XCTestError::CommandExecution(CommandExecutionError::NonZeroExit { desc: String::from("N/A") }))?;
 
-    let xcp_output_file = PathBuf::from_iter([&project_path, &PathBuf::from("xcpretty_report.html")]);
+    let xcp_output_file = PathBuf::from_iter([
+        &project_path,
+        &PathBuf::from("xcpretty_report.html")
+    ]);
     let xcp_command = Command::new("xcpretty")
-        .args(["-t", "-s", "-c", "--report", "html", "--output", &xcp_output_file.to_str().unwrap()])
+        .args([
+            "--test",
+            "--simple",
+            "--color",
+            "--report",
+            "html",
+            "--output",
+            &xcp_output_file.to_str().unwrap()
+        ])
         .current_dir(&project_path)
         .stdin(Stdio::from(xcbuild_stdout))
         .status()
@@ -129,49 +149,138 @@ fn run_tests(project_path: &PathBuf, clean: bool) -> Result<(), XCTestError> {
     Ok(())
 }
 
-fn process_xcresult(input_file: &PathBuf, xcresult_file: &PathBuf) -> Result<(), XCTestError> {
+fn process_xcresult(input_file: &PathBuf, xcresult_file: &PathBuf) -> Result<DataFrame, XCTestError> {
 
     let squads_data = load_squads_file(input_file)?;
     let xcodebuild_report = parse_xcresult_json(xcresult_file)?;
 
-    // println!("xcodebuild_report: {:#?}", xcodebuild_report);
     let all_files = xcodebuild_report.get_all_files();
-    // println!("all_files count: {}", all_files.len());
 
+    // TODO: Move this logic to polars
     let mut report_files: Vec<TargetFile> = vec![];
 
     for file in all_files {
-        let squad_file = squads_data.iter().find(|d| file.file_path().contains(d.file_name()));
+        let squad_file = squads_data
+            .iter()
+            .find(|squad_data| file.file_path().contains(squad_data.file_name()));
 
         if let Some(squad_file) = squad_file {
             let mut file = file.clone();
             file.set_squad_name(squad_file.squad_name().clone());
             report_files.push(file);
+
+            if report_files.len() == squads_data.len() {
+                break
+            }
         } else {
             report_files.push(file.clone());
         }
     }
 
-    // println!("report len: {:#?}", report_files.len());
-    // println!("all files len: {:#?}", all_files.len());
+    let json = serde_json::to_string(&report_files)
+        .map_err(|e| XCTestError::Serde(e))?;
 
-    let json = serde_json::to_string(&report_files).unwrap();
+    let home_path = home_path()?;
+    let report_path = PathBuf::from_iter([
+        &home_path,
+        &PathBuf::from("report.csv")
+    ]);
+    let raw_report_path = PathBuf::from_iter([
+        &home_path,
+        &PathBuf::from("raw_report.csv")
+    ]);
 
-    let path = PathBuf::from_iter([home_path().unwrap(), PathBuf::from("report.csv")]);
-    let mut file = std::fs::File::create(&path).unwrap();
     let cursor = Cursor::new(json);
-    let mut df = JsonReader::new(cursor).finish().unwrap();
+
+    // Raw Report
+    let mut df = JsonReader::new(cursor)
+        .finish()
+        .map_err(|e| XCTestError::Polars(e))?
+        .lazy()
+        .sort_by_exprs(
+            vec![col("squad_name")],
+            vec![false],
+            true,
+            true
+        )
+        .rename(
+            [
+                "path",
+                "covered_lines",
+                "executable_lines",
+                "line_coverage",
+                "squad_name"
+            ],
+            [
+                "Filepath",
+                "Covered Lines",
+                "Executable Lines",
+                "Line Coverage",
+                "Squad"
+            ],
+        )
+        .with_column(
+            col("Squad")
+                .fill_null(Expr::Literal(LiteralValue::Utf8(String::from("N/A"))))
+        )
+        .collect()
+        .map_err(|e| XCTestError::Polars(e))?;
+
+    let mut file = File::create(&raw_report_path)
+        .map_err(|e| XCTestError::FileIO(e))?;
 
     CsvWriter::new(&mut file)
         .finish(&mut df)
-        .unwrap();
+        .map_err(|e| XCTestError::Polars(e))?;
 
-    Ok(())
+    // Report
+    let mut df = process_report(df)?;
+
+    let mut file = File::create(&report_path)
+        .map_err(|e| XCTestError::FileIO(e))?;
+
+    CsvWriter::new(&mut file)
+        .finish(&mut df)
+        .map_err(|e| XCTestError::Polars(e))?;
+
+    Ok(df)
+}
+
+fn process_report(report: DataFrame) -> Result<DataFrame, XCTestError> {
+    let frame = report
+        .lazy()
+        .group_by(["Squad"])
+        .agg([
+            count(),
+            col("Covered Lines").sum(),
+            col("Executable Lines").sum()
+        ])
+        .with_column(
+            col("Covered Lines")
+                .cast(DataType::Float64)
+                .div(col("Executable Lines"))
+                .mul(Expr::Literal(LiteralValue::Float64(100_f64)))
+                .round(2)
+                .alias("Coverage %")
+        )
+        .sort_by_exprs(
+            vec![col("Squad")],
+            vec![false],
+            true,
+            true
+        )
+        .with_column(
+            col("Squad")
+                .fill_null(Expr::Literal(LiteralValue::Utf8(String::from("N/A"))))
+        )
+        .rename(["count"], ["Count"])
+        .collect()
+        .map_err(|e| XCTestError::Polars(e))?;
+
+    Ok(frame)
 }
 
 fn parse_xcresult_json(xcresult_file: &PathBuf) -> Result<XCodeBuildReport, XCTestError> {
-    let home_path = home_path()?;
-    let raw_report = PathBuf::from_iter(&[home_path, PathBuf::from("raw_report.json")]);
 
     if !&xcresult_file.try_exists().unwrap_or_default() {
         return Err(XCTestError::FilePath(FilePathError::NotFound))
@@ -186,40 +295,24 @@ fn parse_xcresult_json(xcresult_file: &PathBuf) -> Result<XCodeBuildReport, XCTe
             &xcresult_file.to_str().unwrap()
         ])
         .output()
-        .map_err(|e| {
-            println!("xcrun error: {:?}", e);
-            return XCTestError::CommandExecution(CommandExecutionError::XCRun(e))
-        })?;
+        .map_err(|e| XCTestError::CommandExecution(CommandExecutionError::XCRun(e)))?;
 
-    let json_report = String::from_utf8(xcrun_output.stdout).unwrap();
+    let json_report = String::from_utf8(xcrun_output.stdout)
+        .map_err(|e| XCTestError::UTF8(e))?;
 
-    let targets: XCodeBuildReport = serde_json::from_str(&json_report).unwrap();
+    let targets: XCodeBuildReport = serde_json::from_str(&json_report)
+        .map_err(|e| XCTestError::Serde(e))?;
 
     Ok(targets)
 }
 
 fn load_squads_file(filepath: &PathBuf) -> Result<Vec<SquadData>, XCTestError> {
     let mut df = CsvReader::from_path(filepath)
-        .map_err(|e| {
-            return XCTestError::Polars(e)
-        })?
+        .map_err(|e| XCTestError::Polars(e))?
+        .with_columns(Some(vec!["Squad".into(), "Filepath".into()]))
         .has_header(true)
         .finish()
-        .map_err(|e| {
-            return XCTestError::Polars(e)
-        })?;
-
-    let fields = df.fields()
-        .iter()
-        .map(|f| f.name.to_string())
-        .collect::<Vec<String>>();
-
-    let expected_field_names = ["ID", "Squad", "Filename"];
-    for field in expected_field_names {
-        if !fields.contains(&field.to_string()) {
-            return Err(XCTestError::CSVParse(CSVParseError::ColumnMissing { name: field }))
-        }
-    }
+        .map_err(|e| XCTestError::Polars(e))?;
 
     let mut bytes: Vec<u8> = vec![];
 

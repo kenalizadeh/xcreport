@@ -28,7 +28,6 @@ pub struct Target {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct TargetFile {
-    name: String,
     path: String,
     #[serde(rename(deserialize = "coveredLines"))]
     covered_lines: usize,
@@ -53,7 +52,7 @@ impl TargetFile {
 pub struct SquadData {
     #[serde(rename(deserialize = "Squad"))]
     squad_name: String,
-    #[serde(rename(deserialize = "Filename"))]
+    #[serde(rename(deserialize = "Filepath"))]
     file_path: String
 }
 

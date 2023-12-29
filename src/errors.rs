@@ -12,10 +12,14 @@ pub enum XCTestError {
     FilePath(#[source] FilePathError),
     #[error("DirPathError")]
     DirPath(#[source] DirPathError),
+    #[error("UTF8")]
+    UTF8(#[source] std::string::FromUtf8Error),
     #[error("CommandExecutionError")]
     CommandExecution(#[source] CommandExecutionError),
     #[error("Polars error")]
     Polars(#[source] PolarsError),
+    #[error("Serde error")]
+    Serde(#[source] serde_json::Error),
     #[error("CSVParseError")]
     CSVParse(#[source] CSVParseError)
 }
