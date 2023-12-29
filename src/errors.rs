@@ -1,23 +1,23 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
+use std::process::{ExitCode, Termination};
 use polars::error::PolarsError;
-use polars::export::arrow::bitmap::utils::fmt;
 use thiserror::Error as ThisError;
 
 #[derive(ThisError, Debug)]
 pub enum XCTestError {
-    #[error("failed to read the key file")]
-    FileIOError(#[source] std::io::Error),
-    #[error("failed to read the key file")]
-    FilePathError(#[source] FilePathError),
-    #[error("failed to read the key file")]
-    DirPathError(#[source] DirPathError),
-    #[error("failed to execute command")]
-    CommandExecutionError(#[source] CommandExecutionError),
-    #[error("failed to execute polars operation")]
+    #[error("FileIOError")]
+    FileIO(#[source] std::io::Error),
+    #[error("FilePathError")]
+    FilePath(#[source] FilePathError),
+    #[error("DirPathError")]
+    DirPath(#[source] DirPathError),
+    #[error("CommandExecutionError")]
+    CommandExecution(#[source] CommandExecutionError),
+    #[error("Polars error")]
     Polars(#[source] PolarsError),
-    #[error("failed to parse csv file")]
-    CSVParseError(#[source] CSVParseError)
+    #[error("CSVParseError")]
+    CSVParse(#[source] CSVParseError)
 }
 
 #[derive(ThisError, Debug)]

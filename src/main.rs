@@ -1,81 +1,34 @@
-mod mods;
-
 use std::path::PathBuf;
-use std::error::Error;
-use std::ffi::OsStr;
 use std::fmt::Display;
-use std::fs;
-use std::fs::File;
+use std::io::{Cursor, Read};
 use std::process::{Command, Stdio};
-use std::ops::Deref;
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use polars::prelude::*;
 
-use crate::mods::errors::{CommandExecutionError, CSVParseError, DirPathError, FilePathError, XCTestError};
+mod fs;
+mod args;
+mod errors;
+mod model;
 
-/// Simple program to greet a person
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
+use crate::args::{Cli, Commands};
+use crate::errors::{CSVParseError, FilePathError, XCTestError};
+use crate::errors::CommandExecutionError;
+use crate::fs::{home_path, setup_home_dir, xcresult_path};
+use crate::model::{SquadData, TargetFile, XCodeBuildReport};
 
-    /// Optional name to operate on
-    name: Option<String>,
-
-    /// Turn debugging information on
-    #[arg(short, long)]
-    debug: bool
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Run tests and generate coverage report
-    Run {
-        #[arg(short, long, value_parser = parse_input_file)]
-        input_file: PathBuf,
-        #[arg(short, long)]
-        project_path: PathBuf,
-        #[arg(short, long, default_value_t = false)]
-        clean: bool
-    },
-    /// Generate coverage report from test result
-    Generate {
-        /// Path to directory
-        #[arg(short, long, value_parser = parse_input_file)]
-        input_file: PathBuf,
-        #[arg(short, long, value_parser = parse_xcresult_file)]
-        xcresult_file: PathBuf
-    },
-    /// Show last produced report
-    ShowReport
-}
 
 fn main() -> Result<(), XCTestError> {
 
     let cli = Cli::parse();
 
-    // You can check the value provided by positional arguments, or option arguments
-    if let Some(name) = cli.name {
-        println!("Value for name: {name}");
-    }
-
-    // You can see how many times a particular flag or argument occurred
-    // Note, only flags can have multiple occurrences
-    if cli.debug {
-        println!("Debug mode is on")
-    } else {
-        println!("Debug mode is off")
-    }
-
-    setup_home_dir().unwrap();
+    setup_home_dir()?;
 
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
-    match &cli.command {
+    match &cli.command() {
         Commands::Run { input_file, project_path, clean } => {
             println!("Command::Run input_file: {:?}, path: {:?}", input_file, project_path);
-            let res = run_tests(project_path, *clean, cli.debug);
+            let res = run_tests(project_path, *clean);
             match res {
                 Ok(_) => {
                     println!("run_tests res ok");
@@ -101,36 +54,7 @@ fn main() -> Result<(), XCTestError> {
     Ok(())
 }
 
-#[derive(Debug)]
-struct RunParams {
-    input_file: PathBuf,
-    project_path: PathBuf,
-    clean: bool
-}
-
-fn setup_home_dir() -> Result<(), XCTestError> {
-    let xctest_home = home_path()?;
-
-    fs::create_dir_all(&xctest_home)
-        .map_err(|e| {
-            println!("setup_home_dir create error: {:?}", e);
-            return XCTestError::FileIOError(e)
-        })?;
-
-    Ok(())
-}
-
-fn home_path() -> Result<PathBuf, XCTestError> {
-    let home_path = home::home_dir().ok_or(XCTestError::DirPathError(DirPathError::NotFound))?;
-    Ok(PathBuf::from_iter([&home_path, &PathBuf::from(".xctest")]))
-}
-
-fn xcresult_path() -> Result<PathBuf, XCTestError> {
-    let home_path = home_path()?;
-    Ok(PathBuf::from_iter([&home_path, &PathBuf::from("result.xcresult")]))
-}
-
-fn run_tests(project_path: &PathBuf, clean: bool, debug: bool) -> Result<(), XCTestError> {
+fn run_tests(project_path: &PathBuf, clean: bool) -> Result<(), XCTestError> {
 
     if clean {
         println!("- Generating project with Tuist...");
@@ -139,12 +63,7 @@ fn run_tests(project_path: &PathBuf, clean: bool, debug: bool) -> Result<(), XCT
             .stdout(Stdio::null())
             .current_dir(project_path)
             .status()
-            .map_err(|e| {
-                if debug {
-                    println!("error: {:?}", e);
-                }
-                return XCTestError::CommandExecutionError(CommandExecutionError::Tuist(e))
-            })?;
+            .map_err(|e| XCTestError::CommandExecution(CommandExecutionError::Tuist(e)))?;
 
         println!("- Installing pods...");
         Command::new("pod")
@@ -152,12 +71,7 @@ fn run_tests(project_path: &PathBuf, clean: bool, debug: bool) -> Result<(), XCT
             .stdout(Stdio::null())
             .current_dir(project_path)
             .status()
-            .map_err(|e| {
-                if debug {
-                    println!("error: {:?}", e);
-                }
-                return XCTestError::CommandExecutionError(CommandExecutionError::Cocoapods(e))
-            })?;
+            .map_err(|e| XCTestError::CommandExecution(CommandExecutionError::Cocoapods(e)))?;
     }
 
     let xctest_home = home_path()?;
@@ -187,16 +101,11 @@ fn run_tests(project_path: &PathBuf, clean: bool, debug: bool) -> Result<(), XCT
         .current_dir(&project_path)
         .stdout(Stdio::piped())
         .spawn()
-        .map_err(|e| {
-            if debug {
-                println!("xcbuild_child error: {:?}", e);
-            }
-            return XCTestError::CommandExecutionError(CommandExecutionError::XCodeBuild(e))
-        })?;
+        .map_err(|e| XCTestError::CommandExecution(CommandExecutionError::XCodeBuild(e)))?;
 
     let xcbuild_stdout = xcbuild_child
         .stdout
-        .ok_or(XCTestError::CommandExecutionError(CommandExecutionError::NonZeroExit { desc: String::from("N/A") }))?;
+        .ok_or(XCTestError::CommandExecution(CommandExecutionError::NonZeroExit { desc: String::from("N/A") }))?;
 
     let xcp_output_file = PathBuf::from_iter([&project_path, &PathBuf::from("xcpretty_report.html")]);
     let xcp_command = Command::new("xcpretty")
@@ -204,18 +113,9 @@ fn run_tests(project_path: &PathBuf, clean: bool, debug: bool) -> Result<(), XCT
         .current_dir(&project_path)
         .stdin(Stdio::from(xcbuild_stdout))
         .status()
-        .map_err(|e| {
-            if debug {
-                println!("xcp_command error: {:?}", e);
-            }
-            return XCTestError::CommandExecutionError(CommandExecutionError::XCPretty(e))
-        })?;
+        .map_err(|e| XCTestError::CommandExecution(CommandExecutionError::XCPretty(e)))?;
 
     if !xcp_command.success() {
-        if debug {
-            println!("xcp_command code: {:?}", xcp_command.code());
-        }
-
         let exit_code = xcp_command
             .code()
             .map(|code| {
@@ -223,28 +123,58 @@ fn run_tests(project_path: &PathBuf, clean: bool, debug: bool) -> Result<(), XCT
             })
             .unwrap_or(String::from("N/A"));
 
-        return Err(XCTestError::CommandExecutionError(CommandExecutionError::NonZeroExit { desc: exit_code }))
+        return Err(XCTestError::CommandExecution(CommandExecutionError::NonZeroExit { desc: exit_code }))
     }
 
     Ok(())
 }
 
 fn process_xcresult(input_file: &PathBuf, xcresult_file: &PathBuf) -> Result<(), XCTestError> {
-    parse_xcresult_to_dataframe(xcresult_file)?;
 
-    let df = load_squads_file(input_file)?;
+    let squads_data = load_squads_file(input_file)?;
+    let xcodebuild_report = parse_xcresult_json(xcresult_file)?;
 
+    // println!("xcodebuild_report: {:#?}", xcodebuild_report);
+    let all_files = xcodebuild_report.get_all_files();
+    // println!("all_files count: {}", all_files.len());
 
+    let mut report_files: Vec<TargetFile> = vec![];
+
+    for file in all_files {
+        let squad_file = squads_data.iter().find(|d| file.file_path().contains(d.file_name()));
+
+        if let Some(squad_file) = squad_file {
+            let mut file = file.clone();
+            file.set_squad_name(squad_file.squad_name().clone());
+            report_files.push(file);
+        } else {
+            report_files.push(file.clone());
+        }
+    }
+
+    // println!("report len: {:#?}", report_files.len());
+    // println!("all files len: {:#?}", all_files.len());
+
+    let json = serde_json::to_string(&report_files).unwrap();
+
+    let path = PathBuf::from_iter([home_path().unwrap(), PathBuf::from("report.csv")]);
+    let mut file = std::fs::File::create(&path).unwrap();
+    let cursor = Cursor::new(json);
+    let mut df = JsonReader::new(cursor).finish().unwrap();
+
+    CsvWriter::new(&mut file)
+        .finish(&mut df)
+        .unwrap();
 
     Ok(())
 }
 
-fn parse_xcresult_to_dataframe(xcresult_file: &PathBuf) -> Result<DataFrame, XCTestError> {
+fn parse_xcresult_json(xcresult_file: &PathBuf) -> Result<XCodeBuildReport, XCTestError> {
     let home_path = home_path()?;
     let raw_report = PathBuf::from_iter(&[home_path, PathBuf::from("raw_report.json")]);
 
     if !&xcresult_file.try_exists().unwrap_or_default() {
-        return Err(XCTestError::FilePathError(FilePathError::NotFound))
+        return Err(XCTestError::FilePath(FilePathError::NotFound))
     }
 
     let xcrun_output = Command::new("xcrun")
@@ -258,49 +188,27 @@ fn parse_xcresult_to_dataframe(xcresult_file: &PathBuf) -> Result<DataFrame, XCT
         .output()
         .map_err(|e| {
             println!("xcrun error: {:?}", e);
-            return XCTestError::CommandExecutionError(CommandExecutionError::XCRun(e))
+            return XCTestError::CommandExecution(CommandExecutionError::XCRun(e))
         })?;
 
-    fs::write(&raw_report, xcrun_output.stdout).map_err(|e| {
-        println!("report write err: {:?}", e);
-        return XCTestError::FileIOError(e)
-    })?;
+    let json_report = String::from_utf8(xcrun_output.stdout).unwrap();
 
-    let raw_report_file = File::open(&raw_report)
-        .map_err(|e| {
-            println!("raw_report_file err: {:?}", e);
-            return XCTestError::FileIOError(e)
-        })?;
+    let targets: XCodeBuildReport = serde_json::from_str(&json_report).unwrap();
 
-    let df = JsonReader::new(raw_report_file)
-        .with_json_format(JsonFormat::Json)
-        .finish()
-        .map_err(|e| {
-            println!("jsonreader error: {:?}", e);
-            return XCTestError::Polars(e)
-        })?;
-
-    println!("json report: {:?}", df);
-
-    Ok(df)
+    Ok(targets)
 }
 
-fn load_squads_file(filepath: &PathBuf) -> Result<DataFrame, XCTestError> {
-    let df = CsvReader::from_path(filepath)
+fn load_squads_file(filepath: &PathBuf) -> Result<Vec<SquadData>, XCTestError> {
+    let mut df = CsvReader::from_path(filepath)
         .map_err(|e| {
-            println!("csvreader err #1: {:?}", e);
             return XCTestError::Polars(e)
         })?
         .has_header(true)
         .finish()
         .map_err(|e| {
-            println!("csvreader err #2: {:?}", e);
             return XCTestError::Polars(e)
         })?;
 
-    println!("csv headers: {:?}", df.fields());
-
-    // TODO: Check if fields are correct
     let fields = df.fields()
         .iter()
         .map(|f| f.name.to_string())
@@ -309,38 +217,18 @@ fn load_squads_file(filepath: &PathBuf) -> Result<DataFrame, XCTestError> {
     let expected_field_names = ["ID", "Squad", "Filename"];
     for field in expected_field_names {
         if !fields.contains(&field.to_string()) {
-            return Err(XCTestError::CSVParseError(CSVParseError::ColumnMissing { name: field }))
+            return Err(XCTestError::CSVParse(CSVParseError::ColumnMissing { name: field }))
         }
     }
 
-    Ok(df)
-}
+    let mut bytes: Vec<u8> = vec![];
 
-fn parse_file(arg: &str, extension: &str) -> Result<PathBuf, XCTestError> {
-    let path = PathBuf::from(arg);
-    let path_exists = path.try_exists().unwrap_or_default();
+    JsonWriter::new(&mut bytes)
+        .with_json_format(JsonFormat::Json)
+        .finish(&mut df)
+        .unwrap();
 
-    if !path_exists {
-        return Err(XCTestError::FilePathError(FilePathError::NotFound))
-    }
+    let squads_data: Vec<SquadData> = serde_json::from_slice(&bytes[..]).unwrap();
 
-    if path.extension() != Some(OsStr::new(extension)) {
-        let extension = path.extension()
-            .unwrap_or(OsStr::new("N/A"))
-            .to_os_string()
-            .into_string()
-            .unwrap_or(String::from("N/A"));
-
-        return Err(XCTestError::FilePathError(FilePathError::InvalidType { extension }))
-    }
-
-    Ok(path)
-}
-
-fn parse_xcresult_file(arg: &str) -> Result<PathBuf, XCTestError> {
-    parse_file(arg, "xcresult")
-}
-
-fn parse_input_file(arg: &str) -> Result<PathBuf, XCTestError> {
-    parse_file(arg, "csv")
+    Ok(squads_data)
 }
