@@ -1,10 +1,6 @@
-use std::error::Error;
 use std::path::PathBuf;
-use std::fmt::Display;
-use std::io::{Cursor, Read};
-use std::ops::{Div, Mul};
+use std::io::Cursor;
 use std::process::{Command, Stdio};
-use clap::builder::Str;
 use clap::Parser;
 use polars::prelude::*;
 
@@ -17,90 +13,59 @@ mod df;
 use crate::args::{Cli, Commands};
 use crate::errors::{FilePathError, XCTestError};
 use crate::errors::CommandExecutionError;
-use crate::fs::{home_path, setup_home_dir, xcresult_path};
+use crate::fs::{derived_data_path, get_identifier, report_path, xcresult_path};
 use crate::model::{SquadData, TargetFile, XCodeBuildReport};
 
 
 fn main() -> Result<(), XCTestError> {
-
     let cli = Cli::parse();
+    let identifier = get_identifier()?;
+    process_command(cli.command(), identifier)?;
 
-    setup_home_dir()?;
+    Ok(())
+}
 
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
-    match &cli.command() {
-        Commands::Run { input_file, project_path, clean } => {
-            println!("Command::Run input_file: {:?}, path: {:?}", input_file, project_path);
-            let res = run_tests(project_path, *clean);
-            match res {
-                Ok(_) => {
-                    println!("run_tests res ok");
-                    let xcresult_file = xcresult_path()?;
-                    let res = process_xcresult(&input_file, &xcresult_file);
-                    println!("process_xcresult res: {:?}", &res);
-                },
-                Err(e) => {
-                    println!("run_tests error: {:?}", e);
-                }
-            }
+fn process_command(command: &Commands, identifier: String) -> Result<(), XCTestError> {
+    match command {
+        Commands::Run { input_file, project_path, workspace, scheme, destination } => {
+            let xcresult_path = xcresult_path(&identifier)?;
+            run_tests(project_path, &xcresult_path, workspace, scheme, destination)?;
+            process_xcresult(&input_file, &xcresult_path, &identifier)?;
+            print_result(identifier)?;
         },
         Commands::Generate { input_file, xcresult_file } => {
-            println!("Command::Generate input_file: {:?}", input_file);
-            let res = process_xcresult(&input_file, &xcresult_file);
-            println!("process_xcresult res: {:?}", &res);
-        },
-        Commands::ShowReport => {
-            println!("Command::ShowReport")
+            process_xcresult(&input_file, &xcresult_file, &identifier)?;
+            print_result(identifier)?;
         }
     }
 
     Ok(())
 }
 
-fn run_tests(project_path: &PathBuf, clean: bool) -> Result<(), XCTestError> {
+fn run_tests(
+    project_path: &PathBuf,
+    xcresult_path: &PathBuf,
+    workspace: &PathBuf,
+    scheme: &String,
+    destination: &String,
+) -> Result<(), XCTestError> {
 
-    if clean {
-        println!("- Generating project with Tuist...");
-        Command::new("tuist")
-            .args(["generate", "--no-open", "--no-cache"])
-            .stdout(Stdio::null())
-            .current_dir(project_path)
-            .status()
-            .map_err(|e| XCTestError::CommandExecution(CommandExecutionError::Tuist(e)))?;
+    let derived_data_path = derived_data_path()?;
 
-        println!("- Installing pods...");
-        Command::new("pod")
-            .args(["install", "--repo-update", "--clean-install"])
-            .stdout(Stdio::null())
-            .current_dir(project_path)
-            .status()
-            .map_err(|e| XCTestError::CommandExecution(CommandExecutionError::Cocoapods(e)))?;
-    }
-
-    let xctest_home = home_path()?;
-    let workspace_file_path = PathBuf::from_iter([
-        &project_path,
-        &PathBuf::from("IBAMobileBank.xcworkspace")
-    ]);
-    let derived_data_path = PathBuf::from_iter([
-        &xctest_home,
-        &PathBuf::from("derived_data")
-    ]);
     let xcbuild_child = Command::new("xcodebuild")
         .args(&[
             "-workspace",
-            workspace_file_path.to_str().unwrap(),
+            &workspace.to_str().unwrap(),
             "-scheme",
-            "IBAMobileBank-Test",
+            &scheme,
             "-derivedDataPath",
             &derived_data_path.to_str().unwrap(),
             "-resultBundlePath",
-            &xcresult_path()?.to_str().unwrap(),
+            &xcresult_path.to_str().unwrap(),
             "-sdk",
             "iphonesimulator",
             "-destination",
-            "platform=iOS Simulator,name=iPhone 14,OS=17.0.1",
+            &destination,
             "-enableCodeCoverage",
             "YES",
             "clean",
@@ -151,7 +116,7 @@ fn run_tests(project_path: &PathBuf, clean: bool) -> Result<(), XCTestError> {
 }
 
 fn match_squad_files(squads_data: Vec<SquadData>, report: XCodeBuildReport) -> Vec<TargetFile> {
-    // TODO: Move this inefficient logic to polars
+    // TODO: Move this inefficient logic to polars (if possible)
     let all_files = report.get_all_files();
     let mut report_files: Vec<TargetFile> = vec![];
 
@@ -176,7 +141,7 @@ fn match_squad_files(squads_data: Vec<SquadData>, report: XCodeBuildReport) -> V
     return report_files
 }
 
-fn process_xcresult(input_file: &PathBuf, xcresult_file: &PathBuf) -> Result<DataFrame, XCTestError> {
+fn process_xcresult(input_file: &PathBuf, xcresult_file: &PathBuf, identifier: &String) -> Result<DataFrame, XCTestError> {
 
     let squads_data = parse_squads_file(input_file)?;
     let xcodebuild_report = parse_xcresult_json(xcresult_file)?;
@@ -191,10 +156,10 @@ fn process_xcresult(input_file: &PathBuf, xcresult_file: &PathBuf) -> Result<Dat
         .map_err(|e| XCTestError::Polars(e))?;
 
     let mut raw_report_df = df::process_raw_report(df)?;
-    df::save_raw_report(&mut raw_report_df)?;
+    df::save_raw_report(&mut raw_report_df, identifier)?;
 
     let mut report_df = df::process_report(&raw_report_df)?;
-    df::save_report(&mut report_df)?;
+    df::save_report(&mut report_df, identifier)?;
 
     Ok(report_df)
 }
@@ -243,4 +208,11 @@ fn parse_squads_file(filepath: &PathBuf) -> Result<Vec<SquadData>, XCTestError> 
     let squads_data: Vec<SquadData> = serde_json::from_slice(&bytes[..]).unwrap();
 
     Ok(squads_data)
+}
+
+fn print_result(identifier: String) -> Result<(), XCTestError> {
+    let path = report_path(&identifier)?;
+    println!("\nYour report is ready at:\n{:?}", path);
+
+    Ok(())
 }

@@ -1,4 +1,3 @@
-use clap::builder::Str;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -17,12 +16,6 @@ impl XCodeBuildReport {
 
 #[derive(Deserialize, Debug)]
 pub struct Target {
-    #[serde(rename(deserialize = "coveredLines"))]
-    covered_lines: usize,
-    #[serde(rename(deserialize = "executableLines"))]
-    executable_lines: usize,
-    #[serde(rename(deserialize = "lineCoverage"))]
-    line_coverage: f32,
     files: Vec<TargetFile>
 }
 

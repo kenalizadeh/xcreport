@@ -207,7 +207,9 @@ checksum = "7f2c685bad3eb3d45a01354cedb7d5faa66194d1d58ba6e267a8de788f79db38"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
+ "wasm-bindgen",
  "windows-targets 0.48.5",
 ]
 
@@ -1688,6 +1690,7 @@ checksum = "dff9641d1cd4be8d1a070daf9e3773c5f67e78b4d9d42263020c057706765c04"
 name = "xctest_rs"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "clap",
  "home",
  "polars",

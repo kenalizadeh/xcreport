@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
-use std::process::{ExitCode, Termination};
 use polars::error::PolarsError;
 use thiserror::Error as ThisError;
 
@@ -19,15 +18,11 @@ pub enum XCTestError {
     #[error("Polars error")]
     Polars(#[source] PolarsError),
     #[error("Serde error")]
-    Serde(#[source] serde_json::Error),
-    #[error("CSVParseError")]
-    CSVParse(#[source] CSVParseError)
+    Serde(#[source] serde_json::Error)
 }
 
 #[derive(ThisError, Debug)]
 pub enum CommandExecutionError {
-    Tuist(#[source] std::io::Error),
-    Cocoapods(#[source] std::io::Error),
     XCodeBuild(#[source] std::io::Error),
     XCPretty(#[source] std::io::Error),
     XCRun(#[source] std::io::Error),
@@ -37,8 +32,6 @@ pub enum CommandExecutionError {
 impl Display for CommandExecutionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            CommandExecutionError::Tuist(e) => Debug::fmt(&e, f),
-            CommandExecutionError::Cocoapods(e) => Debug::fmt(&e, f),
             CommandExecutionError::XCodeBuild(e) => Debug::fmt(&e, f),
             CommandExecutionError::XCPretty(e) => Debug::fmt(&e, f),
             CommandExecutionError::XCRun(e) => Debug::fmt(&e, f),
@@ -74,21 +67,6 @@ impl Display for FilePathError {
             },
             FilePathError::InvalidType { extension } => {
                 write!(f, "{}", format!("File type: {:?} is invalid", extension))
-            }
-        }
-    }
-}
-
-#[derive(ThisError, Debug)]
-pub enum CSVParseError {
-    ColumnMissing { name: &'static str }
-}
-
-impl Display for CSVParseError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CSVParseError::ColumnMissing { name } => {
-                write!(f, "{}", format!("column {} could not be found", name))
             }
         }
     }

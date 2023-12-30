@@ -24,8 +24,12 @@ pub enum Commands {
         input_file: PathBuf,
         #[arg(short, long)]
         project_path: PathBuf,
-        #[arg(short, long, default_value_t = false)]
-        clean: bool
+        #[arg(short, long)]
+        workspace: PathBuf,
+        #[arg(short, long)]
+        scheme: String,
+        #[arg(short, long)]
+        destination: String
     },
     /// Generate coverage report from test result
     Generate {
@@ -34,9 +38,7 @@ pub enum Commands {
         input_file: PathBuf,
         #[arg(short, long, value_parser = parse_xcresult_file)]
         xcresult_file: PathBuf
-    },
-    /// Show last produced report
-    ShowReport
+    }
 }
 
 fn parse_file(arg: &str, extension: &str) -> Result<PathBuf, XCTestError> {
