@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::path::PathBuf;
 use clap::{Parser, Subcommand};
-use crate::errors::{FilePathError, XCTestError};
+use crate::err::{FilePathError, XCTestError};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

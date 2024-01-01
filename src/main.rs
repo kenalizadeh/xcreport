@@ -6,13 +6,13 @@ use polars::prelude::*;
 
 mod fs;
 mod cli;
-mod errors;
+mod err;
 mod data;
 mod df;
 
 use crate::cli::{Cli, Commands};
-use crate::errors::{FilePathError, XCTestError};
-use crate::errors::CommandExecutionError;
+use crate::err::{FilePathError, XCTestError};
+use crate::err::CommandExecutionError;
 use crate::fs::{derived_data_path, get_identifier, report_path, xcresult_path};
 use crate::data::{SquadData, TargetFile, XCodeBuildReport};
 
@@ -203,9 +203,10 @@ fn parse_squads_file(filepath: &PathBuf) -> Result<Vec<SquadData>, XCTestError> 
     JsonWriter::new(&mut bytes)
         .with_json_format(JsonFormat::Json)
         .finish(&mut df)
-        .unwrap();
+        .map_err(|e| XCTestError::Polars(e))?;
 
-    let squads_data: Vec<SquadData> = serde_json::from_slice(&bytes[..]).unwrap();
+    let squads_data: Vec<SquadData> = serde_json::from_slice(&bytes[..])
+        .map_err(|e| XCTestError::Serde(e))?;
 
     Ok(squads_data)
 }

@@ -3,7 +3,7 @@ use std::ops::{Div, Mul};
 use polars::frame::DataFrame;
 use polars::prelude::*;
 
-use crate::errors::XCTestError;
+use crate::err::XCTestError;
 use crate::fs::{raw_report_path, report_path};
 
 pub fn process_raw_report(report: DataFrame) -> Result<DataFrame, XCTestError> {

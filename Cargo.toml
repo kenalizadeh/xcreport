@@ -1,9 +1,13 @@
 [package]
 authors = ["Kenan Alizadeh <kananalizade@gmail.com>"]
-name = "xctest"
+name = "xctest_rs"
 description = "A Tool for delivering squad-specific code coverage report."
 version = "0.1.0"
 edition = "2021"
+
+[[bin]]
+name = "xctest"
+path = "src/main.rs"
 
 [profile. release]
 strip = true

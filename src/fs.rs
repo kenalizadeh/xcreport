@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
-use crate::errors::{DirPathError, XCTestError};
+use crate::err::{DirPathError, XCTestError};
 
 pub fn derived_data_path() -> Result<PathBuf, XCTestError> {
     let xctest_home = home_path()?;
