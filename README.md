@@ -1,4 +1,5 @@
 **A Tool for delivering squad-specific code coverage report.**
+> Check releases for the executable binary
 
 ```shell
 Usage: xctest_rs <COMMAND>
