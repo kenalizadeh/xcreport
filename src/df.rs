@@ -1,7 +1,7 @@
 use std::path::PathBuf;
+use std::ops::{Div, Mul};
 use polars::frame::DataFrame;
 use polars::prelude::*;
-use std::ops::{Div, Mul};
 
 use crate::errors::XCTestError;
 use crate::fs::{raw_report_path, report_path};

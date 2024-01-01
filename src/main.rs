@@ -5,16 +5,16 @@ use clap::Parser;
 use polars::prelude::*;
 
 mod fs;
-mod args;
+mod cli;
 mod errors;
-mod model;
+mod data;
 mod df;
 
-use crate::args::{Cli, Commands};
+use crate::cli::{Cli, Commands};
 use crate::errors::{FilePathError, XCTestError};
 use crate::errors::CommandExecutionError;
 use crate::fs::{derived_data_path, get_identifier, report_path, xcresult_path};
-use crate::model::{SquadData, TargetFile, XCodeBuildReport};
+use crate::data::{SquadData, TargetFile, XCodeBuildReport};
 
 
 fn main() -> Result<(), XCTestError> {

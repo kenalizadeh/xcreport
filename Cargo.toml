@@ -1,10 +1,13 @@
 [package]
-authors = ["Kenan Alizadeh"]
-name = "xctest_rs"
+authors = ["Kenan Alizadeh <kananalizade@gmail.com>"]
+name = "xctest"
 description = "A Tool for delivering squad-specific code coverage report."
 version = "0.1.0"
 edition = "2021"
 
+[profile. release]
+strip = true
+opt-level = "z"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
