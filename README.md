@@ -24,7 +24,12 @@ PROJECT_PATH -
 ```shell
 Run tests and generate coverage report
 
-Usage: xctest_rs run --input-file <INPUT_FILE> --project-path <PROJECT_PATH> --workspace <WORKSPACE> --scheme <SCHEME> --destination <DESTINATION>
+Usage: xctest_rs run \
+  --input-file <INPUT_FILE> \
+  --project-path <PROJECT_PATH> \
+  --workspace <WORKSPACE> \
+  --scheme <SCHEME> \
+  --destination <DESTINATION>
 
 Options:
   -i, --input-file <INPUT_FILE>      
@@ -42,7 +47,9 @@ Options:
 ```shell
 Generate coverage report from test result
 
-Usage: xctest_rs generate --input-file <INPUT_FILE> --xcresult-file <XCRESULT_FILE>
+Usage: xctest_rs generate \
+  --input-file <INPUT_FILE> \
+  --xcresult-file <XCRESULT_FILE>
 
 Options:
   -i, --input-file <INPUT_FILE>        Path to directory
