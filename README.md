@@ -15,6 +15,8 @@ Options:
 
 # Run
 
+## Runs the tests on specified inputs, then generates the report.
+
 INPUT_FILE - Provide an input CSV file which contains two required columns `Squad` and `Filepath`.
 PROJECT_PATH - 
 
@@ -33,6 +35,8 @@ Options:
 ```
 
 # GENERATE
+
+## Generates the report on test result `.xcresult` file.
 
 ```shell
 Generate coverage report from test result
