@@ -59,7 +59,7 @@ Options:
 
 # OUTPUT
 
-Report consists of a brief `report.csv` and full `raw_repot.csv` files. The raw report can also be used as `INPUT_FILE` for next iterations.
+Report consists of a brief `report.csv` and full `full_repot.csv` files. The full report can also be used as `INPUT_FILE` for next iterations.
 
 </br>
 </br>
@@ -68,5 +68,6 @@ Report consists of a brief `report.csv` and full `raw_repot.csv` files. The raw 
 - report.csv
 <img width="521" alt="report" src="https://github.com/kenalizadeh/xctest_rs/assets/4370392/fdb023ca-3ecb-4c47-9938-f17bb21eb8c4">
 
-- raw_report.csv
-<img width="1595" alt="raw_report" src="https://github.com/kenalizadeh/xctest_rs/assets/4370392/79445dcf-1fe1-4bcb-9664-8d2c15fef04b">
+- full_report.csv
+<img width="1494" alt="full_report" src="https://github.com/kenalizadeh/xctest_rs/assets/4370392/9181d0df-d0c1-4d74-b14b-fe722543dde9">
+
