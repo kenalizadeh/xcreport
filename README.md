@@ -24,7 +24,7 @@ PROJECT_PATH -
 ```shell
 Run tests and generate coverage report
 
-Usage: xctest run \
+Usage: xctest run [OPTIONS] \
   --input-file <INPUT_FILE> \
   --project-path <PROJECT_PATH> \
   --workspace <WORKSPACE> \
@@ -32,12 +32,14 @@ Usage: xctest run \
   --destination <DESTINATION>
 
 Options:
-  -i, --input-file <INPUT_FILE>      
-  -p, --project-path <PROJECT_PATH>  
-  -w, --workspace <WORKSPACE>        
-  -s, --scheme <SCHEME>              
-  -d, --destination <DESTINATION>    
+  -i, --input-file <INPUT_FILE>      Input csv file to match the test results (Squad and Filepath fields required)
+  -p, --project-path <PROJECT_PATH>  Path to your xcode project root
+  -w, --workspace <WORKSPACE>        Xcodebuild argument - Your workspace name
+  -s, --scheme <SCHEME>              Xcodebuild argument - Your scheme name
+  -d, --destination <DESTINATION>    Xcodebuild argument - Simulator destination
+  -o, --output-file <OUTPUT_FILE>    Optional | File path to save the generated report
   -h, --help                         Print help
+
 ```
 
 # GENERATE
@@ -47,13 +49,14 @@ Options:
 ```shell
 Generate coverage report from test result
 
-Usage: xctest generate \
+Usage: xctest generate [OPTIONS] \
   --input-file <INPUT_FILE> \
   --xcresult-file <XCRESULT_FILE>
 
 Options:
-  -i, --input-file <INPUT_FILE>        Path to directory
-  -x, --xcresult-file <XCRESULT_FILE>  
+  -i, --input-file <INPUT_FILE>        Input csv file to match the test results (Squad and Filepath fields required)
+  -x, --xcresult-file <XCRESULT_FILE>  Path to the .xcresult file
+  -o, --output-file <OUTPUT_FILE>      Optional | File path to save the generated report
   -h, --help                           Print help
 ```
 
