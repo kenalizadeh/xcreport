@@ -88,7 +88,6 @@ fn parse_output_file(arg: &str) -> Result<PathBuf, XCTestError> {
 
     if path_exists {
         return Err(XCTestError::FilePath(FilePathError::AlreadyExists))
-        // return Err(XCTestError::FileAlreadyExists)
     }
 
     Ok(path)
