@@ -5,19 +5,19 @@ use thiserror::Error as ThisError;
 
 #[derive(ThisError, Debug)]
 pub enum XCTestError {
-    #[error("FileIOError")]
-    FileIO(#[source] std::io::Error),
-    #[error("FilePathError")]
+    #[error("{0}")]
     FilePath(#[source] FilePathError),
-    #[error("DirPathError")]
+    #[error("{0}")]
+    FileIO(#[source] std::io::Error),
+    #[error("{0}")]
     DirPath(#[source] DirPathError),
-    #[error("UTF8")]
+    #[error("{0}")]
     UTF8(#[source] std::string::FromUtf8Error),
-    #[error("CommandExecutionError")]
+    #[error("{0}")]
     CommandExecution(#[source] CommandExecutionError),
-    #[error("Polars error")]
+    #[error("{0}")]
     Polars(#[source] PolarsError),
-    #[error("Serde error")]
+    #[error("{0}")]
     Serde(#[source] serde_json::Error)
 }
 
@@ -56,6 +56,7 @@ impl Display for DirPathError {
 #[derive(ThisError, Debug)]
 pub enum FilePathError {
     NotFound,
+    AlreadyExists,
     InvalidType { extension: String }
 }
 
@@ -63,10 +64,13 @@ impl Display for FilePathError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             FilePathError::NotFound => {
-                f.write_str("File does not exist")
+                f.write_str("File does not exist.")
+            },
+            FilePathError::AlreadyExists => {
+                f.write_str("File already exists.")
             },
             FilePathError::InvalidType { extension } => {
-                write!(f, "{}", format!("File type: {:?} is invalid", extension))
+                write!(f, "{}", format!("File type: {:?} is invalid.", extension))
             }
         }
     }

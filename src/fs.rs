@@ -17,13 +17,13 @@ pub fn xcresult_path(identifier: &String) -> Result<PathBuf, XCTestError> {
     Ok(PathBuf::from_iter([&home_path, &PathBuf::from(identifier), &PathBuf::from("result.xcresult")]))
 }
 
-pub fn raw_report_path(identifier: &String) -> Result<PathBuf, XCTestError> {
+pub fn full_report_path(identifier: &String) -> Result<PathBuf, XCTestError> {
     let home_path = home_path()?;
     Ok(
         PathBuf::from_iter([
             &home_path,
             &PathBuf::from(&identifier),
-            &PathBuf::from("raw_report.csv")
+            &PathBuf::from("full_report.csv")
         ])
     )
 }

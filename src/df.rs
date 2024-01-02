@@ -4,9 +4,9 @@ use polars::frame::DataFrame;
 use polars::prelude::*;
 
 use crate::err::XCTestError;
-use crate::fs::{raw_report_path, report_path};
+use crate::fs::{full_report_path, report_path};
 
-pub fn process_raw_report(report: DataFrame) -> Result<DataFrame, XCTestError> {
+pub fn process_full_report(report: DataFrame) -> Result<DataFrame, XCTestError> {
     report
         .lazy()
         .sort_by_exprs(
@@ -71,19 +71,27 @@ pub fn process_report(report: &DataFrame) -> Result<DataFrame, XCTestError> {
         .map_err(|e| XCTestError::Polars(e))
 }
 
-pub fn save_raw_report(df: &mut DataFrame, identifier: &String) -> Result<(), XCTestError> {
-    let raw_report_path = raw_report_path(&identifier)?;
+pub fn save_full_report(df: &mut DataFrame, identifier: &String) -> Result<PathBuf, XCTestError> {
+    let full_report_path = full_report_path(&identifier)?;
 
-    save_dataframe_csv(df, raw_report_path)
+    save_dataframe_csv(df, &full_report_path)?;
+
+    Ok(full_report_path)
 }
 
-pub fn save_report(df: &mut DataFrame, identifier: &String) -> Result<(), XCTestError> {
+pub fn save_report_to_default(df: &mut DataFrame, identifier: &String) -> Result<PathBuf, XCTestError> {
     let report_path = report_path(&identifier)?;
 
-    save_dataframe_csv(df, report_path)
+    save_dataframe_csv(df, &report_path)?;
+
+    Ok(report_path)
 }
 
-fn save_dataframe_csv(df: &mut DataFrame, path: PathBuf) -> Result<(), XCTestError> {
+pub fn save_report_to_output(df: &mut DataFrame, output_path: &PathBuf) -> Result<(), XCTestError> {
+    save_dataframe_csv(df, output_path)
+}
+
+fn save_dataframe_csv(df: &mut DataFrame, path: &PathBuf) -> Result<(), XCTestError> {
     let mut file = std::fs::File::create(&path)
         .map_err(|e| XCTestError::FileIO(e))?;
 

@@ -29,15 +29,18 @@ pub enum Commands {
         #[arg(short, long)]
         scheme: String,
         #[arg(short, long)]
-        destination: String
+        destination: String,
+        #[arg(short, long, value_parser = parse_output_file)]
+        output_file: Option<PathBuf>
     },
     /// Generate coverage report from test result
     Generate {
-        /// Path to directory
         #[arg(short, long, value_parser = parse_input_file)]
         input_file: PathBuf,
         #[arg(short, long, value_parser = parse_xcresult_file)]
-        xcresult_file: PathBuf
+        xcresult_file: PathBuf,
+        #[arg(short, long, value_parser = parse_output_file)]
+        output_file: Option<PathBuf>
     }
 }
 
@@ -68,4 +71,16 @@ fn parse_xcresult_file(arg: &str) -> Result<PathBuf, XCTestError> {
 
 fn parse_input_file(arg: &str) -> Result<PathBuf, XCTestError> {
     parse_file(arg, "csv")
+}
+
+fn parse_output_file(arg: &str) -> Result<PathBuf, XCTestError> {
+    let path = PathBuf::from(arg);
+    let path_exists = path.try_exists().unwrap_or_default();
+
+    if path_exists {
+        return Err(XCTestError::FilePath(FilePathError::AlreadyExists))
+        // return Err(XCTestError::FileAlreadyExists)
+    }
+
+    Ok(path)
 }

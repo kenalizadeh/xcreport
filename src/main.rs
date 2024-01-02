@@ -13,7 +13,7 @@ mod df;
 use crate::cli::{Cli, Commands};
 use crate::err::{FilePathError, XCTestError};
 use crate::err::CommandExecutionError;
-use crate::fs::{derived_data_path, get_identifier, report_path, xcresult_path};
+use crate::fs::{derived_data_path, get_identifier, full_report_path, xcresult_path};
 use crate::data::{SquadData, TargetFile, XCodeBuildReport};
 
 
@@ -27,15 +27,22 @@ fn main() -> Result<(), XCTestError> {
 
 fn process_command(command: &Commands, identifier: String) -> Result<(), XCTestError> {
     match command {
-        Commands::Run { input_file, project_path, workspace, scheme, destination } => {
+        Commands::Run {
+            input_file,
+            project_path,
+            workspace,
+            scheme,
+            destination,
+            output_file
+        } => {
             let xcresult_path = xcresult_path(&identifier)?;
             run_tests(project_path, &xcresult_path, workspace, scheme, destination)?;
-            process_xcresult(&input_file, &xcresult_path, &identifier)?;
-            print_result(identifier)?;
+            let report_path = process_xcresult(&input_file, &xcresult_path, &identifier, output_file)?;
+            print_result(&report_path, &identifier)?;
         },
-        Commands::Generate { input_file, xcresult_file } => {
-            process_xcresult(&input_file, &xcresult_file, &identifier)?;
-            print_result(identifier)?;
+        Commands::Generate { input_file, xcresult_file, output_file } => {
+            let report_path = process_xcresult(&input_file, &xcresult_file, &identifier, output_file)?;
+            print_result(&report_path, &identifier)?;
         }
     }
 
@@ -141,7 +148,12 @@ fn match_squad_files(squads_data: Vec<SquadData>, report: XCodeBuildReport) -> V
     return report_files
 }
 
-fn process_xcresult(input_file: &PathBuf, xcresult_file: &PathBuf, identifier: &String) -> Result<DataFrame, XCTestError> {
+fn process_xcresult(
+    input_file: &PathBuf,
+    xcresult_file: &PathBuf,
+    identifier: &String,
+    output_file: &Option<PathBuf>
+) -> Result<PathBuf, XCTestError> {
 
     let squads_data = parse_squads_file(input_file)?;
     let xcodebuild_report = parse_xcresult_json(xcresult_file)?;
@@ -155,13 +167,18 @@ fn process_xcresult(input_file: &PathBuf, xcresult_file: &PathBuf, identifier: &
         .finish()
         .map_err(|e| XCTestError::Polars(e))?;
 
-    let mut raw_report_df = df::process_raw_report(df)?;
-    df::save_raw_report(&mut raw_report_df, identifier)?;
+    let mut full_report_df = df::process_full_report(df)?;
+    df::save_full_report(&mut full_report_df, identifier)?;
 
-    let mut report_df = df::process_report(&raw_report_df)?;
-    df::save_report(&mut report_df, identifier)?;
+    let mut report_df = df::process_report(&full_report_df)?;
 
-    Ok(report_df)
+    if let Some(report_path) = output_file {
+        df::save_report_to_output(&mut report_df, &report_path)?;
+        Ok(report_path.clone())
+    } else {
+        let path = df::save_report_to_default(&mut report_df, identifier)?;
+        Ok(path)
+    }
 }
 
 fn parse_xcresult_json(xcresult_file: &PathBuf) -> Result<XCodeBuildReport, XCTestError> {
@@ -211,9 +228,11 @@ fn parse_squads_file(filepath: &PathBuf) -> Result<Vec<SquadData>, XCTestError> 
     Ok(squads_data)
 }
 
-fn print_result(identifier: String) -> Result<(), XCTestError> {
-    let path = report_path(&identifier)?;
-    println!("\nYour report is ready at:\n{:?}", path);
+fn print_result(report_path: &PathBuf, identifier: &String) -> Result<(), XCTestError> {
+    let full_report_path = full_report_path(&identifier)?;
+
+    println!("\nYour report is ready at:\n{:?}", report_path);
+    println!("\nYour full report is at:\n{:?}", full_report_path);
 
     Ok(())
 }
