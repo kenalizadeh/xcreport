@@ -20,25 +20,34 @@ impl Cli {
 pub enum Commands {
     /// Run tests and generate coverage report
     Run {
+        /// Input csv file to match the test results (Squad and Filepath fields required).
         #[arg(short, long, value_parser = parse_input_file)]
         input_file: PathBuf,
+        /// Path to your xcode project root.
         #[arg(short, long)]
         project_path: PathBuf,
+        /// Xcodebuild argument - Your workspace name.
         #[arg(short, long)]
         workspace: PathBuf,
+        /// Xcodebuild argument - Your scheme name.
         #[arg(short, long)]
         scheme: String,
+        /// Xcodebuild argument - Simulator destination.
         #[arg(short, long)]
         destination: String,
+        /// Optional | File path to save the generated report.
         #[arg(short, long, value_parser = parse_output_file)]
         output_file: Option<PathBuf>
     },
     /// Generate coverage report from test result
     Generate {
+        /// Input csv file to match the test results (Squad and Filepath fields required).
         #[arg(short, long, value_parser = parse_input_file)]
         input_file: PathBuf,
+        /// Path to the .xcresult file.
         #[arg(short, long, value_parser = parse_xcresult_file)]
         xcresult_file: PathBuf,
+        /// Optional | File path to save the generated report.
         #[arg(short, long, value_parser = parse_output_file)]
         output_file: Option<PathBuf>
     }
