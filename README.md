@@ -18,9 +18,6 @@ Options:
 
 ## Runs the tests on specified inputs, then generates the report.
 
-INPUT_FILE - Provide an input CSV file which contains two required columns `Squad` and `Filepath`.
-PROJECT_PATH - 
-
 ```shell
 Run tests and generate coverage report
 
