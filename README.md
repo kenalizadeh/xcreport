@@ -69,5 +69,5 @@ Report consists of a brief `report.csv` and full `full_repot.csv` files. The ful
 <img width="521" alt="report" src="https://github.com/kenalizadeh/xctest_rs/assets/4370392/fdb023ca-3ecb-4c47-9938-f17bb21eb8c4">
 
 - full_report.csv
-<img width="1494" alt="full_report" src="https://github.com/kenalizadeh/xctest_rs/assets/4370392/9181d0df-d0c1-4d74-b14b-fe722543dde9">
+<img width="796" alt="full_report" src="https://github.com/kenalizadeh/xctest_rs/assets/4370392/9b2ea5fd-8128-49d1-a672-de186f32adfc">
 
