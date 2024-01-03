@@ -11,13 +11,13 @@ mod data;
 mod df;
 
 use crate::cli::{Cli, Commands};
-use crate::err::{FilePathError, XCTestError};
+use crate::err::{FilePathError, XCReportError};
 use crate::err::CommandExecutionError;
 use crate::fs::{derived_data_path, get_identifier, full_report_path, xcresult_path};
 use crate::data::{SquadData, TargetFile, XCodeBuildReport};
 
 
-fn main() -> Result<(), XCTestError> {
+fn main() -> Result<(), XCReportError> {
     let cli = Cli::parse();
     let identifier = get_identifier()?;
     process_command(cli.command(), identifier)?;
@@ -25,7 +25,7 @@ fn main() -> Result<(), XCTestError> {
     Ok(())
 }
 
-fn process_command(command: &Commands, identifier: String) -> Result<(), XCTestError> {
+fn process_command(command: &Commands, identifier: String) -> Result<(), XCReportError> {
     match command {
         Commands::Run {
             input_file,
@@ -55,7 +55,7 @@ fn run_tests(
     workspace: &PathBuf,
     scheme: &String,
     destination: &String,
-) -> Result<(), XCTestError> {
+) -> Result<(), XCReportError> {
 
     let derived_data_path = derived_data_path()?;
 
@@ -83,11 +83,11 @@ fn run_tests(
         .current_dir(&project_path)
         .stdout(Stdio::piped())
         .spawn()
-        .map_err(|e| XCTestError::CommandExecution(CommandExecutionError::XCodeBuild(e)))?;
+        .map_err(|e| XCReportError::CommandExecution(CommandExecutionError::XCodeBuild(e)))?;
 
     let xcbuild_stdout = xcbuild_child
         .stdout
-        .ok_or(XCTestError::CommandExecution(CommandExecutionError::NonZeroExit { desc: String::from("N/A") }))?;
+        .ok_or(XCReportError::CommandExecution(CommandExecutionError::NonZeroExit { desc: String::from("N/A") }))?;
 
     let xcp_output_file = PathBuf::from_iter([
         &project_path,
@@ -106,7 +106,7 @@ fn run_tests(
         .current_dir(&project_path)
         .stdin(Stdio::from(xcbuild_stdout))
         .status()
-        .map_err(|e| XCTestError::CommandExecution(CommandExecutionError::XCPretty(e)))?;
+        .map_err(|e| XCReportError::CommandExecution(CommandExecutionError::XCPretty(e)))?;
 
     if !xcp_command.success() {
         let exit_code = xcp_command
@@ -116,7 +116,7 @@ fn run_tests(
             })
             .unwrap_or(String::from("N/A"));
 
-        return Err(XCTestError::CommandExecution(CommandExecutionError::NonZeroExit { desc: exit_code }))
+        return Err(XCReportError::CommandExecution(CommandExecutionError::NonZeroExit { desc: exit_code }))
     }
 
     Ok(())
@@ -153,19 +153,19 @@ fn process_xcresult(
     xcresult_file: &PathBuf,
     identifier: &String,
     output_file: &Option<PathBuf>
-) -> Result<PathBuf, XCTestError> {
+) -> Result<PathBuf, XCReportError> {
 
     let squads_data = parse_squads_file(input_file)?;
     let xcodebuild_report = parse_xcresult_json(xcresult_file)?;
     let report_files = match_squad_files(squads_data, xcodebuild_report);
 
     let json = serde_json::to_string(&report_files)
-        .map_err(|e| XCTestError::Serde(e))?;
+        .map_err(|e| XCReportError::Serde(e))?;
 
     let cursor = Cursor::new(json);
     let df = JsonReader::new(cursor)
         .finish()
-        .map_err(|e| XCTestError::Polars(e))?;
+        .map_err(|e| XCReportError::Polars(e))?;
 
     let mut full_report_df = df::process_full_report(df)?;
     df::save_full_report(&mut full_report_df, identifier)?;
@@ -181,10 +181,10 @@ fn process_xcresult(
     }
 }
 
-fn parse_xcresult_json(xcresult_file: &PathBuf) -> Result<XCodeBuildReport, XCTestError> {
+fn parse_xcresult_json(xcresult_file: &PathBuf) -> Result<XCodeBuildReport, XCReportError> {
 
     if !&xcresult_file.try_exists().unwrap_or_default() {
-        return Err(XCTestError::FilePath(FilePathError::NotFound))
+        return Err(XCReportError::FilePath(FilePathError::NotFound))
     }
 
     let xcrun_output = Command::new("xcrun")
@@ -196,39 +196,39 @@ fn parse_xcresult_json(xcresult_file: &PathBuf) -> Result<XCodeBuildReport, XCTe
             &xcresult_file.to_str().unwrap()
         ])
         .output()
-        .map_err(|e| XCTestError::CommandExecution(CommandExecutionError::XCRun(e)))?;
+        .map_err(|e| XCReportError::CommandExecution(CommandExecutionError::XCRun(e)))?;
 
     let json_report = String::from_utf8(xcrun_output.stdout)
-        .map_err(|e| XCTestError::UTF8(e))?;
+        .map_err(|e| XCReportError::UTF8(e))?;
 
     let targets: XCodeBuildReport = serde_json::from_str(&json_report)
-        .map_err(|e| XCTestError::Serde(e))?;
+        .map_err(|e| XCReportError::Serde(e))?;
 
     Ok(targets)
 }
 
-fn parse_squads_file(filepath: &PathBuf) -> Result<Vec<SquadData>, XCTestError> {
+fn parse_squads_file(filepath: &PathBuf) -> Result<Vec<SquadData>, XCReportError> {
     let mut df = CsvReader::from_path(filepath)
-        .map_err(|e| XCTestError::Polars(e))?
+        .map_err(|e| XCReportError::Polars(e))?
         .with_columns(Some(vec!["Squad".into(), "Filepath".into()]))
         .has_header(true)
         .finish()
-        .map_err(|e| XCTestError::Polars(e))?;
+        .map_err(|e| XCReportError::Polars(e))?;
 
     let mut bytes: Vec<u8> = vec![];
 
     JsonWriter::new(&mut bytes)
         .with_json_format(JsonFormat::Json)
         .finish(&mut df)
-        .map_err(|e| XCTestError::Polars(e))?;
+        .map_err(|e| XCReportError::Polars(e))?;
 
     let squads_data: Vec<SquadData> = serde_json::from_slice(&bytes[..])
-        .map_err(|e| XCTestError::Serde(e))?;
+        .map_err(|e| XCReportError::Serde(e))?;
 
     Ok(squads_data)
 }
 
-fn print_result(report_path: &PathBuf, identifier: &String) -> Result<(), XCTestError> {
+fn print_result(report_path: &PathBuf, identifier: &String) -> Result<(), XCReportError> {
     let full_report_path = full_report_path(&identifier)?;
 
     println!("\nYour report is ready at:\n{:?}", report_path);

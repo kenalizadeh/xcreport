@@ -2,7 +2,7 @@
 > Check releases for the executable binary
 
 ```shell
-Usage: xctest_rs <COMMAND>
+Usage: xcreport <COMMAND>
 
 Commands:
   run       Run tests and generate coverage report
@@ -21,7 +21,7 @@ Options:
 ```shell
 Run tests and generate coverage report
 
-Usage: xctest run [OPTIONS] \
+Usage: xcreport run [OPTIONS] \
   --input-file <INPUT_FILE> \
   --project-path <PROJECT_PATH> \
   --workspace <WORKSPACE> \
@@ -46,7 +46,7 @@ Options:
 ```shell
 Generate coverage report from test result
 
-Usage: xctest generate [OPTIONS] \
+Usage: xcreport generate [OPTIONS] \
   --input-file <INPUT_FILE> \
   --xcresult-file <XCRESULT_FILE>
 

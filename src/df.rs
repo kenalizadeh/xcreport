@@ -3,10 +3,10 @@ use std::ops::{Div, Mul};
 use polars::frame::DataFrame;
 use polars::prelude::*;
 
-use crate::err::XCTestError;
+use crate::err::XCReportError;
 use crate::fs::{full_report_path, report_path};
 
-pub fn process_full_report(report: DataFrame) -> Result<DataFrame, XCTestError> {
+pub fn process_full_report(report: DataFrame) -> Result<DataFrame, XCReportError> {
     report
         .lazy()
         .sort_by_exprs(
@@ -33,13 +33,13 @@ pub fn process_full_report(report: DataFrame) -> Result<DataFrame, XCTestError> 
         )
         .with_column(
             col("Squad")
-                .fill_null(Expr::Literal(LiteralValue::Utf8(String::from("N/A"))))
+                .fill_null(Expr::Literal(LiteralValue::String(String::from("N/A"))))
         )
         .collect()
-        .map_err(|e| XCTestError::Polars(e))
+        .map_err(|e| XCReportError::Polars(e))
 }
 
-pub fn process_report(report: &DataFrame) -> Result<DataFrame, XCTestError> {
+pub fn process_report(report: &DataFrame) -> Result<DataFrame, XCReportError> {
     report.clone()
         .lazy()
         .group_by(["Squad"])
@@ -64,14 +64,14 @@ pub fn process_report(report: &DataFrame) -> Result<DataFrame, XCTestError> {
         )
         .with_column(
             col("Squad")
-                .fill_null(Expr::Literal(LiteralValue::Utf8(String::from("N/A"))))
+                .fill_null(Expr::Literal(LiteralValue::String(String::from("N/A"))))
         )
         .rename(["count"], ["Count"])
         .collect()
-        .map_err(|e| XCTestError::Polars(e))
+        .map_err(|e| XCReportError::Polars(e))
 }
 
-pub fn save_full_report(df: &mut DataFrame, identifier: &String) -> Result<PathBuf, XCTestError> {
+pub fn save_full_report(df: &mut DataFrame, identifier: &String) -> Result<PathBuf, XCReportError> {
     let full_report_path = full_report_path(&identifier)?;
 
     save_dataframe_csv(df, &full_report_path)?;
@@ -79,7 +79,7 @@ pub fn save_full_report(df: &mut DataFrame, identifier: &String) -> Result<PathB
     Ok(full_report_path)
 }
 
-pub fn save_report_to_default(df: &mut DataFrame, identifier: &String) -> Result<PathBuf, XCTestError> {
+pub fn save_report_to_default(df: &mut DataFrame, identifier: &String) -> Result<PathBuf, XCReportError> {
     let report_path = report_path(&identifier)?;
 
     save_dataframe_csv(df, &report_path)?;
@@ -87,15 +87,15 @@ pub fn save_report_to_default(df: &mut DataFrame, identifier: &String) -> Result
     Ok(report_path)
 }
 
-pub fn save_report_to_output(df: &mut DataFrame, output_path: &PathBuf) -> Result<(), XCTestError> {
+pub fn save_report_to_output(df: &mut DataFrame, output_path: &PathBuf) -> Result<(), XCReportError> {
     save_dataframe_csv(df, output_path)
 }
 
-fn save_dataframe_csv(df: &mut DataFrame, path: &PathBuf) -> Result<(), XCTestError> {
+fn save_dataframe_csv(df: &mut DataFrame, path: &PathBuf) -> Result<(), XCReportError> {
     let mut file = std::fs::File::create(&path)
-        .map_err(|e| XCTestError::FileIO(e))?;
+        .map_err(|e| XCReportError::FileIO(e))?;
 
     CsvWriter::new(&mut file)
         .finish(df)
-        .map_err(|e| XCTestError::Polars(e))
+        .map_err(|e| XCReportError::Polars(e))
 }

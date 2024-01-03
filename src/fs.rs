@@ -1,23 +1,23 @@
 use std::fs;
 use std::path::PathBuf;
-use crate::err::{DirPathError, XCTestError};
+use crate::err::{DirPathError, XCReportError};
 
-pub fn derived_data_path() -> Result<PathBuf, XCTestError> {
-    let xctest_home = home_path()?;
-    Ok(PathBuf::from_iter([&xctest_home, &PathBuf::from("derived_data")]))
+pub fn derived_data_path() -> Result<PathBuf, XCReportError> {
+    let home_path = home_path()?;
+    Ok(PathBuf::from_iter([&home_path, &PathBuf::from("derived_data")]))
 }
 
-pub fn home_path() -> Result<PathBuf, XCTestError> {
-    let home_path = home::home_dir().ok_or(XCTestError::DirPath(DirPathError::NotFound))?;
-    Ok(PathBuf::from_iter([&home_path, &PathBuf::from(".xctest")]))
+pub fn home_path() -> Result<PathBuf, XCReportError> {
+    let home_path = home::home_dir().ok_or(XCReportError::DirPath(DirPathError::NotFound))?;
+    Ok(PathBuf::from_iter([&home_path, &PathBuf::from(".xcreport")]))
 }
 
-pub fn xcresult_path(identifier: &String) -> Result<PathBuf, XCTestError> {
+pub fn xcresult_path(identifier: &String) -> Result<PathBuf, XCReportError> {
     let home_path = home_path()?;
     Ok(PathBuf::from_iter([&home_path, &PathBuf::from(identifier), &PathBuf::from("result.xcresult")]))
 }
 
-pub fn full_report_path(identifier: &String) -> Result<PathBuf, XCTestError> {
+pub fn full_report_path(identifier: &String) -> Result<PathBuf, XCReportError> {
     let home_path = home_path()?;
     Ok(
         PathBuf::from_iter([
@@ -28,7 +28,7 @@ pub fn full_report_path(identifier: &String) -> Result<PathBuf, XCTestError> {
     )
 }
 
-pub fn report_path(identifier: &String) -> Result<PathBuf, XCTestError> {
+pub fn report_path(identifier: &String) -> Result<PathBuf, XCReportError> {
     let home_path = home_path()?;
     Ok(
         PathBuf::from_iter([
@@ -39,7 +39,7 @@ pub fn report_path(identifier: &String) -> Result<PathBuf, XCTestError> {
     )
 }
 
-pub fn get_workdir(identifier: &String) -> Result<PathBuf, XCTestError> {
+pub fn get_workdir(identifier: &String) -> Result<PathBuf, XCReportError> {
     let home_path = home_path()?;
     let path = PathBuf::from_iter([
         &home_path,
@@ -47,12 +47,12 @@ pub fn get_workdir(identifier: &String) -> Result<PathBuf, XCTestError> {
     ]);
 
     fs::create_dir_all(&path)
-        .map_err(|e| XCTestError::FileIO(e))?;
+        .map_err(|e| XCReportError::FileIO(e))?;
 
     Ok(path)
 }
 
-pub fn get_identifier() -> Result<String, XCTestError> {
+pub fn get_identifier() -> Result<String, XCReportError> {
     let identifier = chrono::offset::Local::now()
         .format("%F-%H-%M-%S")
         .to_string();

@@ -4,7 +4,7 @@ use polars::error::PolarsError;
 use thiserror::Error as ThisError;
 
 #[derive(ThisError, Debug)]
-pub enum XCTestError {
+pub enum XCReportError {
     #[error("{0}")]
     FilePath(#[source] FilePathError),
     #[error("{0}")]

@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::path::PathBuf;
 use clap::{Parser, Subcommand};
-use crate::err::{FilePathError, XCTestError};
+use crate::err::{FilePathError, XCReportError};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -53,12 +53,12 @@ pub enum Commands {
     }
 }
 
-fn parse_file(arg: &str, extension: &str) -> Result<PathBuf, XCTestError> {
+fn parse_file(arg: &str, extension: &str) -> Result<PathBuf, XCReportError> {
     let path = PathBuf::from(arg);
     let path_exists = path.try_exists().unwrap_or_default();
 
     if !path_exists {
-        return Err(XCTestError::FilePath(FilePathError::NotFound))
+        return Err(XCReportError::FilePath(FilePathError::NotFound))
     }
 
     if path.extension() != Some(OsStr::new(extension)) {
@@ -68,26 +68,26 @@ fn parse_file(arg: &str, extension: &str) -> Result<PathBuf, XCTestError> {
             .into_string()
             .unwrap_or(String::from("N/A"));
 
-        return Err(XCTestError::FilePath(FilePathError::InvalidType { extension }))
+        return Err(XCReportError::FilePath(FilePathError::InvalidType { extension }))
     }
 
     Ok(path)
 }
 
-fn parse_xcresult_file(arg: &str) -> Result<PathBuf, XCTestError> {
+fn parse_xcresult_file(arg: &str) -> Result<PathBuf, XCReportError> {
     parse_file(arg, "xcresult")
 }
 
-fn parse_input_file(arg: &str) -> Result<PathBuf, XCTestError> {
+fn parse_input_file(arg: &str) -> Result<PathBuf, XCReportError> {
     parse_file(arg, "csv")
 }
 
-fn parse_output_file(arg: &str) -> Result<PathBuf, XCTestError> {
+fn parse_output_file(arg: &str) -> Result<PathBuf, XCReportError> {
     let path = PathBuf::from(arg);
     let path_exists = path.try_exists().unwrap_or_default();
 
     if path_exists {
-        return Err(XCTestError::FilePath(FilePathError::AlreadyExists))
+        return Err(XCReportError::FilePath(FilePathError::AlreadyExists))
     }
 
     Ok(path)

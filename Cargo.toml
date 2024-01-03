@@ -1,21 +1,20 @@
 [package]
 authors = ["Kenan Alizadeh <kananalizade@gmail.com>"]
-name = "xctest_rs"
+name = "xcreport"
 description = "A Tool for delivering squad-specific code coverage report."
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 [[bin]]
-name = "xctest"
+name = "xcreport"
 path = "src/main.rs"
 
 [profile. release]
 strip = true
 opt-level = "z"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-polars = { version = "0.35.4", features = ["lazy", "json", "csv", "round_series"] }
+polars = { version = "0.36.2", features = ["lazy", "json", "csv", "round_series"] }
 clap = { version="4.4.11", features = ["derive"] }
 home = "0.5.9"
 thiserror = "1.0.51"
