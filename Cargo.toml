@@ -2,7 +2,7 @@
 authors = ["Kenan Alizadeh <kananalizade@gmail.com>"]
 name = "xcreport"
 description = "A Tool for delivering squad-specific code coverage report."
-version = "0.3.0"
+version = "1.0.0"
 edition = "2021"
 
 [[bin]]
