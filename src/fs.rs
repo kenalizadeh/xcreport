@@ -53,7 +53,7 @@ pub fn get_workdir(identifier: &String) -> Result<PathBuf, XCReportError> {
     ]);
 
     fs::create_dir_all(&path)
-        .map_err(|e| XCReportError::FileIO(e))?;
+        .map_err(XCReportError::FileIO)?;
 
     Ok(path)
 }
@@ -65,5 +65,5 @@ pub fn get_identifier() -> Result<String, XCReportError> {
 
     get_workdir(&identifier)?;
 
-    return Ok(identifier)
+    Ok(identifier)
 }

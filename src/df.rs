@@ -36,7 +36,7 @@ pub fn process_full_report(report: DataFrame) -> Result<DataFrame, XCReportError
                 .fill_null(Expr::Literal(LiteralValue::String(String::from("N/A"))))
         )
         .collect()
-        .map_err(|e| XCReportError::Polars(e))
+        .map_err(XCReportError::Polars)
 }
 
 pub fn process_report(report: &DataFrame) -> Result<DataFrame, XCReportError> {
@@ -68,11 +68,11 @@ pub fn process_report(report: &DataFrame) -> Result<DataFrame, XCReportError> {
         )
         .rename(["count"], ["Count"])
         .collect()
-        .map_err(|e| XCReportError::Polars(e))
+        .map_err(XCReportError::Polars)
 }
 
 pub fn save_full_report(df: &mut DataFrame, identifier: &String) -> Result<PathBuf, XCReportError> {
-    let full_report_path = full_report_path(&identifier)?;
+    let full_report_path = full_report_path(identifier)?;
 
     save_dataframe_csv(df, &full_report_path)?;
 
@@ -80,7 +80,7 @@ pub fn save_full_report(df: &mut DataFrame, identifier: &String) -> Result<PathB
 }
 
 pub fn save_report_to_default(df: &mut DataFrame, identifier: &String) -> Result<PathBuf, XCReportError> {
-    let report_path = report_path(&identifier)?;
+    let report_path = report_path(identifier)?;
 
     save_dataframe_csv(df, &report_path)?;
 
@@ -92,10 +92,10 @@ pub fn save_report_to_output(df: &mut DataFrame, output_path: &PathBuf) -> Resul
 }
 
 fn save_dataframe_csv(df: &mut DataFrame, path: &PathBuf) -> Result<(), XCReportError> {
-    let mut file = std::fs::File::create(&path)
-        .map_err(|e| XCReportError::FileIO(e))?;
+    let mut file = std::fs::File::create(path)
+        .map_err(XCReportError::FileIO)?;
 
     CsvWriter::new(&mut file)
         .finish(df)
-        .map_err(|e| XCReportError::Polars(e))
+        .map_err(XCReportError::Polars)
 }

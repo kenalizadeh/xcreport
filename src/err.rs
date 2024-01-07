@@ -70,7 +70,7 @@ impl Display for FilePathError {
                 f.write_str("File already exists.")
             },
             FilePathError::InvalidType { extension } => {
-                write!(f, "{}", format!("File type: {:?} is invalid.", extension))
+                write!(f, "File type: {:?} is invalid", extension)
             }
         }
     }
