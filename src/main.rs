@@ -13,7 +13,7 @@ mod df;
 use crate::cli::{Cli, Commands};
 use crate::err::{FilePathError, XCReportError};
 use crate::err::CommandExecutionError;
-use crate::fs::{derived_data_path, get_identifier, full_report_path, xcresult_path};
+use crate::fs::{derived_data_path, get_identifier, full_report_path, xcresult_path, xcpretty_report_path};
 use crate::data::{SquadData, TargetFile, XCodeBuildReport};
 
 
@@ -36,7 +36,7 @@ fn process_command(command: &Commands, identifier: String) -> Result<(), XCRepor
             output_file
         } => {
             let xcresult_path = xcresult_path(&identifier)?;
-            run_tests(project_path, &xcresult_path, workspace, scheme, destination)?;
+            run_tests(project_path, &xcresult_path, workspace, scheme, destination, &identifier)?;
             let report_path = process_xcresult(&input_file, &xcresult_path, &identifier, output_file)?;
             print_result(&report_path, &identifier)?;
         },
@@ -55,11 +55,11 @@ fn run_tests(
     workspace: &PathBuf,
     scheme: &String,
     destination: &String,
+    identifier: &String
 ) -> Result<(), XCReportError> {
 
     let derived_data_path = derived_data_path()?;
-
-    let xcbuild_child = Command::new("xcodebuild")
+    let mut xcbuild_child = Command::new("xcodebuild")
         .args(&[
             "-workspace",
             &workspace.to_str().unwrap(),
@@ -81,19 +81,30 @@ fn run_tests(
             "CODE_SIGNING_REQUIRED=NO"
         ])
         .current_dir(&project_path)
-        .stdout(Stdio::piped())
         .spawn()
         .map_err(|e| XCReportError::CommandExecution(CommandExecutionError::XCodeBuild(e)))?;
+
+    let xcbuild_exit_status = xcbuild_child
+        .wait()
+        .map_err(|e| XCReportError::CommandExecution(CommandExecutionError::XCPretty(e)))?;
+
+    if !xcbuild_exit_status.success() {
+        let exit_code = xcbuild_exit_status
+            .code()
+            .map(|code| {
+                code.to_string()
+            })
+            .unwrap_or(String::from("N/A"));
+
+        return Err(XCReportError::CommandExecution(CommandExecutionError::NonZeroExit { desc: exit_code }))
+    }
 
     let xcbuild_stdout = xcbuild_child
         .stdout
         .ok_or(XCReportError::CommandExecution(CommandExecutionError::NonZeroExit { desc: String::from("N/A") }))?;
 
-    let xcp_output_file = PathBuf::from_iter([
-        &project_path,
-        &PathBuf::from("xcpretty_report.html")
-    ]);
-    let xcp_command = Command::new("xcpretty")
+    let xcp_output_file = xcpretty_report_path(identifier)?;
+    Command::new("xcpretty")
         .args([
             "--test",
             "--simple",
@@ -105,19 +116,10 @@ fn run_tests(
         ])
         .current_dir(&project_path)
         .stdin(Stdio::from(xcbuild_stdout))
-        .status()
+        .spawn()
+        .map_err(|e| XCReportError::CommandExecution(CommandExecutionError::XCPretty(e)))?
+        .wait()
         .map_err(|e| XCReportError::CommandExecution(CommandExecutionError::XCPretty(e)))?;
-
-    if !xcp_command.success() {
-        let exit_code = xcp_command
-            .code()
-            .map(|code| {
-                code.to_string()
-            })
-            .unwrap_or(String::from("N/A"));
-
-        return Err(XCReportError::CommandExecution(CommandExecutionError::NonZeroExit { desc: exit_code }))
-    }
 
     Ok(())
 }

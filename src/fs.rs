@@ -17,6 +17,12 @@ pub fn xcresult_path(identifier: &String) -> Result<PathBuf, XCReportError> {
     Ok(PathBuf::from_iter([&home_path, &PathBuf::from(identifier), &PathBuf::from("result.xcresult")]))
 }
 
+pub fn xcpretty_report_path(identifier: &String) -> Result<PathBuf, XCReportError> {
+    let home_path = home_path()?;
+
+    Ok(PathBuf::from_iter([&home_path, &PathBuf::from(identifier), &PathBuf::from("xcpretty_report.html")]))
+}
+
 pub fn full_report_path(identifier: &String) -> Result<PathBuf, XCReportError> {
     let home_path = home_path()?;
     Ok(
