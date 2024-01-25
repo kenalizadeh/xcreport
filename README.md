@@ -59,7 +59,7 @@ Options:
 
 # OUTPUT
 
-Report consists of a brief `report.csv` and full `full_repot.csv` files. The full report can also be used as `INPUT_FILE` for next iterations.
+Report consists of a brief `report.csv` and full `full_report.csv` files. The full report can also be used as `INPUT_FILE` for next iterations.
 
 </br>
 </br>
