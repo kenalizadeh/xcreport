@@ -1,4 +1,4 @@
-**A Tool for delivering squad-specific code coverage report.**
+**A Tool for delivering grouped code coverage report.**
 > Check releases for the executable binary
 
 ```shell
